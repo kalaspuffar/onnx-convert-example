@@ -1,3 +1,5 @@
+import sys
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -37,17 +39,19 @@ class MLP(nn.Module):
 
 
 # Load the trained model from file
-trained_dict = torch.load('models/mnist.pth', map_location={'cuda:0': 'cpu'})
+trained_dict = torch.load(sys.argv[0], map_location={'cuda:0': 'cpu'})
 
 trained_model = MLP(784, [256, 256], 10)
 trained_model.load_state_dict(trained_dict)
 
+os.mkdir("%s" % sys.argv[1])
+
 # Export the trained model to ONNX
 dummy_input = Variable(torch.randn(1, 1, 28, 28)) # one black and white 28 x 28 picture will be the input to the model
-torch.onnx.export(trained_model, dummy_input, "models/mnist.onnx")
+torch.onnx.export(trained_model, dummy_input, "%s/mnist.onnx" % sys.argv[1])
 
 # Load the ONNX file
-model = onnx.load('models/mnist.onnx')
+model = onnx.load("%s/mnist.onnx" % sys.argv[1])
 
 # Import the ONNX model to Tensorflow
 tf_rep = prepare(model)
@@ -62,9 +66,9 @@ print('outputs:', tf_rep.outputs)
 print('tensor_dict:')
 print(tf_rep.tensor_dict)
 
-tf_rep.export_graph('models/mnist.pb')
+tf_rep.export_graph("%s/mnist.pb" % sys.argv[1])
 
 converter = tf.lite.TFLiteConverter.from_frozen_graph(
-        'models/mnist.pb', tf_rep.inputs, tf_rep.outputs)
+        "%s/mnist.pb" % sys.argv[1], tf_rep.inputs, tf_rep.outputs)
 tflite_model = converter.convert()
-open("models/mnist.tflite", "wb").write(tflite_model)
+open("%s/mnist.tflite" % sys.argv[1], "wb").write(tflite_model)
